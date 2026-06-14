@@ -1,0 +1,7 @@
+version: "3.9"
+services:
+  test:
+    build: .
+    container_name: taskmanager-test
+    env_file: .env.test
+    command: pytest tests/ -v --cov=app --cov-report=term-missing

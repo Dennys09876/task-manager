@@ -1,0 +1,11 @@
+venv/
+__pycache__/
+*.pyc
+*.db
+.env.prod
+reports/
+.coverage
+coverage.xml
+*.egg-info/
+dist/
+build/

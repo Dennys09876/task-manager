@@ -1,0 +1,11 @@
+version: "3.9"
+services:
+  app:
+    build: .
+    container_name: taskmanager-dev
+    env_file: .env.dev
+    ports:
+      - "5000:5000"
+    volumes:
+      - .:/app
+    command: python run.py

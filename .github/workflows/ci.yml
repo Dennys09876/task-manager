@@ -1,0 +1,107 @@
+name: CI - Task Manager
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  # ── ETAPA 1: Build y validación ──────────────────────────────────────────
+  build:
+    name: Build & Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Instalar dependencias
+        run: pip install -r requirements.txt
+
+      - name: Verificar importaciones
+        run: python -c "from app import create_app; print('Build OK')"
+
+  # ── ETAPA 2: Pruebas ─────────────────────────────────────────────────────
+  test:
+    name: Tests (funcionales, negativos, borde)
+    runs-on: ubuntu-latest
+    needs: build
+    env:
+      FLASK_ENV: testing
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Instalar dependencias
+        run: pip install -r requirements.txt
+
+      - name: Pruebas funcionales
+        run: pytest tests/test_functional.py -v
+
+      - name: Pruebas negativas
+        run: pytest tests/test_negative.py -v
+
+      - name: Pruebas de borde
+        run: pytest tests/test_boundary.py -v
+
+      - name: Reporte de cobertura
+        run: pytest tests/ --cov=app --cov-report=xml --cov-report=term-missing
+
+      - name: Subir reporte de cobertura
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage.xml
+
+  # ── ETAPA 3: Docker build (validación de imagen) ─────────────────────────
+  docker-build:
+    name: Docker Build Validation
+    runs-on: ubuntu-latest
+    needs: test
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build imagen Docker
+        run: docker build -t task-manager:ci .
+
+      - name: Smoke test en contenedor
+        run: |
+          docker run -d --name tm-ci -e FLASK_ENV=production -p 8000:5000 task-manager:ci
+          sleep 3
+          curl -f http://localhost:8000/api/health || exit 1
+          docker stop tm-ci
+
+  # ── ETAPA 4: Deploy a producción (solo en main) ───────────────────────────
+  deploy:
+    name: Deploy (Producción)
+    runs-on: ubuntu-latest
+    needs: docker-build
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Simular deploy a producción
+        run: |
+          echo "======================================"
+          echo "  DEPLOY A PRODUCCIÓN"
+          echo "  Branch: ${{ github.ref_name }}"
+          echo "  Commit: ${{ github.sha }}"
+          echo "  Fecha:  $(date)"
+          echo "======================================"
+          echo "Imagen docker build: OK"
+          echo "Tests superados: OK"
+          echo "Desplegando versión ${{ github.sha }}..."
+          echo "Deploy completado exitosamente"
